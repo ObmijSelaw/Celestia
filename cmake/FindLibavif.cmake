@@ -6,34 +6,26 @@
 # --------
 #
 # Find the avif headers and libraries.
-#
-# This module reports information about the avif
-# installation in several variables.  General variables::
-#
-#   LIBAVIF_FOUND - true if the avif headers and libraries were found
-#   LIBAVIF_INCLUDE_DIRS - the directory containing the avif headers
-#   LIBAVIF_LIBRARIES - avif libraries to be linked
-#
-# The following cache variables may also be set::
-#
-#   LIBAVIF_INCLUDE_DIR - the directory containing the avif headers
-#   LIBAVIF_LIBRARY - the avif library (if any)
 
-# Find include directory
-
-# TODO: use pkgconfig
+# First try pkg-config
+find_package(PkgConfig QUIET)
+if(PKG_CONFIG_FOUND)
+  pkg_check_modules(PC_LIBAVIF QUIET libavif)
+endif()
 
 find_path(LIBAVIF_INCLUDE_DIR
           NAMES avif/avif.h
-          HINTS LIBAVIF_DIR
+          HINTS ${PC_LIBAVIF_INCLUDEDIR} ${PC_LIBAVIF_INCLUDE_DIRS} LIBAVIF_DIR
+          PATH_SUFFIXES include
           DOC "avif headers")
-mark_as_advanced(LIBAVIF_INCLUDE_DIR)
 
 find_library(LIBAVIF_LIBRARY
              NAMES avif
-             HINTS LIBAVIF_DIR
+             HINTS ${PC_LIBAVIF_LIBDIR} ${PC_LIBAVIF_LIBRARY_DIRS} LIBAVIF_DIR
+             PATH_SUFFIXES lib lib64
              DOC "avif libraries")
-mark_as_advanced(LIBAVIF_LIBRARY)
+
+mark_as_advanced(LIBAVIF_INCLUDE_DIR LIBAVIF_LIBRARY)
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Libavif
