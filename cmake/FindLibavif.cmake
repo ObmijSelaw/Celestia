@@ -22,7 +22,7 @@ find_path(LIBAVIF_INCLUDE_DIR
 find_library(LIBAVIF_LIBRARY
              NAMES avif
              HINTS ${PC_LIBAVIF_LIBDIR} ${PC_LIBAVIF_LIBRARY_DIRS} LIBAVIF_DIR
-             PATH_SUFFIXES lib lib64
+             PATH_SUFFIXES lib64
              DOC "avif libraries")
 
 mark_as_advanced(LIBAVIF_INCLUDE_DIR LIBAVIF_LIBRARY)
