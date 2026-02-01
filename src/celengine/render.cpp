@@ -90,6 +90,9 @@
 #endif
 #endif
 
+template<typename T>
+inline T square(T x) { return x * x; }
+
 using namespace Eigen;
 using namespace std;
 using namespace celestia;
@@ -170,6 +173,8 @@ Color Renderer::HorizonGridColor        (0.38f,  0.38f,  0.38f);
 Color Renderer::EclipticColor           (0.5f,   0.1f,   0.1f);
 
 Color Renderer::SelectionCursorColor    (1.0f,   0.0f,   0.0f);
+
+bool Renderer::linearMode = false;
 
 // Some useful unit conversions
 inline float mmToInches(float mm)
@@ -281,6 +286,10 @@ static void BuildGaussianDiscMipLevel(unsigned char* mipPixels,
             float r2 = x * x + y * y;
             float f = s * std::exp(-r2 * isig2) * power;
 
+            #if GL_ES
+            f = f <= 0.04045f ? f * (1.0f/12.92f) : std::pow((f + 0.055f)/1.055f, 2.4f);
+            #endif
+
             mipPixels[i * size + j] = (unsigned char) (255.99f * std::min(f, 1.0f));
         }
     }
@@ -302,6 +311,9 @@ static void BuildGlareMipLevel(unsigned char* mipPixels,
             float x = (float) j - size / 2;
             float r = std::sqrt(x * x + y * y);
             float f = std::pow(base, r * scale);
+            #if GL_ES
+            f = f <= 0.04045f ? f * (1.0f/12.92f) : std::pow((f + 0.055f)/1.055f, 2.4f);
+            #endif
             mipPixels[i * size + j] = (unsigned char) (255.99f * std::min(f, 1.0f));
         }
     }
@@ -1473,9 +1485,8 @@ void Renderer::render(const Observer& observer,
 
     // Calculate saturation magnitude
     satPoint = faintestMag - (1.0f - brightnessBias) / brightnessScale;
-
-    ambientColor = Color(ambientLightLevel, ambientLightLevel, ambientLightLevel);
-
+    ambientColor = Color::srgb(ambientLightLevel, ambientLightLevel, ambientLightLevel);
+    
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -2188,8 +2199,8 @@ void Renderer::renderObject(const Vector3f& pos,
         ri.color = obj.surface->color;
     }
 
-    ri.ambientColor = ambientColor;
-    ri.specularColor = obj.surface->specularColor;
+    ri.ambientColor = linearMode ? ambientColor : Color::srgb(ambientColor);
+    ri.specularColor = linearMode ? obj.surface->specularColor : Color::srgb(obj.surface->specularColor);
     ri.specularPower = obj.surface->specularPower;
     ri.lunarLambert = obj.surface->lunarLambert;
 
@@ -2235,7 +2246,7 @@ void Renderer::renderObject(const Vector3f& pos,
                 // If there's an atmosphere, we need to move the far plane
                 // out so that the clouds and atmosphere shell aren't clipped.
                 float atmosphereRadius = eradius + atmosphereHeight;
-                frustumFarPlane += std::sqrt(math::square(atmosphereRadius) - math::square(eradius));
+                frustumFarPlane += std::sqrt(square(atmosphereRadius) - square(eradius));
             }
         }
     }
@@ -2369,8 +2380,19 @@ void Renderer::renderObject(const Vector3f& pos,
             {
                 Eigen::Matrix4f modelView = math::rotate(getCameraOrientationf());
                 Matrices mvp = { m.projection, &modelView };
+
+                
+                Atmosphere atm(*atmosphere);
+                if (!linearMode)
+                {
+                    atm.lowerColor = Color::srgb(atm.lowerColor);
+                    atm.upperColor = Color::srgb(atm.upperColor);
+                    atm.skyColor = Color::srgb(atm.skyColor);
+                    atm.sunsetColor = Color::srgb(atm.sunsetColor);
+                }
+                
                 m_atmosphereRenderer->renderLegacy(
-                    *atmosphere,
+                    atm,
                     ls,
                     pos,
                     obj.orientation,
@@ -2910,7 +2932,7 @@ void Renderer::renderStar(const Star& star,
         // Use atmosphere effect to give stars a fuzzy fringe
         if (star.hasCorona() && rp.geometry == engine::GeometryHandle::Invalid)
         {
-            Color atmColor(color.red() * 0.5f, color.green() * 0.5f, color.blue() * 0.5f);
+            Color atmColor = color * 0.5f;
             atmosphere.height = radius * CoronaHeight;
             atmosphere.lowerColor = atmColor;
             atmosphere.upperColor = atmColor;
