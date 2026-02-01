@@ -183,7 +183,7 @@ GalaxyRenderer::bindTextures()
 
     if (m_colorTex == nullptr)
     {
-        m_colorTex = CreateProceduralTexture(256, 1,
+        m_colorTex = ImageTexture::createProcedural(256, 1,
                                            #ifdef GL_ES
                                            celestia::PixelFormat::RGBA,
                                            #else
