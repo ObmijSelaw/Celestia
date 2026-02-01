@@ -468,7 +468,7 @@ GlobularRenderer::FormManager::getColorTex()
         #else
         format = celestia::engine::PixelFormat::sRGBA;
         #endif
-        colorTex = CreateProceduralTexture(256, 1, format,
+        colorTex = ImageTexture::createProcedural(256, 1, format,
                                                   &colorTextureEval,
                                                   Texture::EdgeClamp,
                                                   Texture::NoMipMaps);
