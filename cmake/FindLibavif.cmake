@@ -21,9 +21,7 @@ find_path(LIBAVIF_INCLUDE_DIR
 
 find_library(LIBAVIF_LIBRARY
              NAMES avif
-             HINTS ${PC_LIBAVIF_LIBDIR} ${PC_LIBAVIF_LIBRARY_DIRS}
              PATHS /usr/lib64 /usr/local/lib64
-             PATH_SUFFIXES lib64
              NO_DEFAULT_PATH
              DOC "avif libraries")
 
@@ -31,7 +29,6 @@ find_library(LIBAVIF_LIBRARY
 if(NOT LIBAVIF_LIBRARY)
   find_library(LIBAVIF_LIBRARY
                NAMES avif
-               HINTS ${PC_LIBAVIF_LIBDIR} ${PC_LIBAVIF_LIBRARY_DIRS}
                DOC "avif libraries")
 endif()
 
