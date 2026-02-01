@@ -3053,7 +3053,9 @@ CelestiaGLProgram::setLightParameters(const LightingState& ls,
         Eigen::Vector3f lightColor = light.color.toVector3() * light.irradiance;
         lights[i].color = light.color.toVector3();
         lights[i].direction = light.direction_obj;
-
+        
+        #if 0
+        
         // Include a phase-based normalization factor to prevent planets from appearing
         // too dim when rendered with non-Lambertian photometric functions.
         float cosPhaseAngle = light.direction_obj.dot(ls.eyeDir_obj);
@@ -3062,7 +3064,9 @@ CelestiaGLProgram::setLightParameters(const LightingState& ls,
             float photometricNormFactor = std::max(1.0f, 1.0f + cosPhaseAngle * 0.5f);
             lightColor *= photometricNormFactor;
         }
-
+        
+        #endif
+        
         lights[i].diffuse = lightColor.cwiseProduct(diffuseColor);
         lights[i].brightness = lightColor.maxCoeff();
         lights[i].specular = lightColor.cwiseProduct(specularColor);
