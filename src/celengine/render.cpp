@@ -210,7 +210,6 @@ Renderer::Renderer() :
     renderMode(GL_FILL),
 #endif
     pointStarVertexBuffer(std::make_unique<PointStarVertexBuffer>(*this, 2048)),
-    glareVertexBuffer(std::make_unique<PointStarVertexBuffer>(*this, 2048)),
     curvePlotVertexBuffer(std::make_unique<CurvePlotVertexBuffer>(*this)),
     m_atmosphereRenderer(std::make_unique<AtmosphereRenderer>(*this)),
     m_cometRenderer(std::make_unique<CometRenderer>(*this)),
@@ -1686,21 +1685,6 @@ void Renderer::renderObjectAsPoint(const Vector3f& position,
             m_largeStarRenderer->render(position, {color, alpha}, pointSize, mvp);
         else
             pointStarVertexBuffer->addStar(position, {color, alpha}, pointSize);
-
-        // If the object is brighter than magnitude 1, add a halo around it to
-        // make it appear more brilliant.  This is a hack to compensate for the
-        // limited dynamic range of monitors.
-        //
-        // TODO: Stars look fine but planets look unrealistically bright
-        // with halos.
-        if (useHalos && glareAlpha > 0.0f)
-        {
-            Eigen::Vector3f center = calculateQuadCenter(getCameraOrientationf(), position, radius);
-            m_gaussianGlareTex->bind();
-            if (glareSize > gl::maxPointSize)
-                m_largeStarRenderer->render(center, {color, glareAlpha}, glareSize, mvp);
-            else
-                glareVertexBuffer->addStar(center, {color, glareAlpha}, glareSize);
         }
     }
 }
@@ -3738,7 +3722,6 @@ void Renderer::renderPointStars(const StarDatabase& starDB,
     starRenderer.viewNormal        = getCameraOrientationf().conjugate() * -Vector3f::UnitZ();
     starRenderer.renderList        = &renderList;
     starRenderer.starVertexBuffer  = pointStarVertexBuffer.get();
-    starRenderer.glareVertexBuffer = glareVertexBuffer.get();
     starRenderer.cosFOV            = std::cos(math::degToRad(calcMaxFOV(fov, getAspectRatio())) / 2.0f);
 
     starRenderer.pixelSize         = pixelSize;
@@ -3756,11 +3739,8 @@ void Renderer::renderPointStars(const StarDatabase& starDB,
     m_gaussianDiscTex->bind();
     starRenderer.starVertexBuffer->setTexture(m_gaussianDiscTex.get());
     starRenderer.starVertexBuffer->setPointScale(screenDpi / 96.0f);
-    starRenderer.glareVertexBuffer->setTexture(m_gaussianGlareTex.get());
-    starRenderer.glareVertexBuffer->setPointScale(screenDpi / 96.0f);
 
     PointStarVertexBuffer::enable();
-    starRenderer.glareVertexBuffer->startSprites();
     if (starStyle == StarStyle::PointStars)
         starRenderer.starVertexBuffer->startBasicPoints();
     else
@@ -3779,7 +3759,6 @@ void Renderer::renderPointStars(const StarDatabase& starDB,
                             faintestMagNight);
 
     starRenderer.starVertexBuffer->finish();
-    starRenderer.glareVertexBuffer->finish();
     PointStarVertexBuffer::disable();
 
 #ifndef GL_ES
@@ -5252,9 +5231,6 @@ Renderer::renderSolarSystemObjects(const Observer &observer,
         setPipelineState(ps);
 
         PointStarVertexBuffer::enable();
-        glareVertexBuffer->startSprites();
-        glareVertexBuffer->render();
-        glareVertexBuffer->finish();
         if (starStyle == StarStyle::PointStars)
             pointStarVertexBuffer->startBasicPoints();
         else
