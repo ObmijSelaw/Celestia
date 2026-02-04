@@ -8,7 +8,7 @@ const float k = 0.0016;
 varying vec3 v_color;
 varying float max_theta;
 varying float pointSize;
-varying float br0;
+varying float br;
 
 // py: def PSF_Bounded(theta: float, max_theta: float, br_center: float):
 // max_theta is common for all pixels so it's set via `varying` in the vertex shader
@@ -38,9 +38,8 @@ void main(void)
     if (max_theta == -1.0)
     {
         // just a one pixel star
-        glow_colored = v_color;
         // py: arr[center[1], center[0]] += scaled_color
-        gl_FragColor = vec4(glow_colored, 1.0);
+        gl_FragColor = vec4(v_color, 1.0);
     }
     else
     {
@@ -49,10 +48,10 @@ void main(void)
         // Option 2: glare square render
         vec2 offset = (gl_PointCoord.xy - vec2(0.5)) * pointSize;
         float theta = length(offset) * degree_per_px;
-        // py: glow_bw = PSF_Bounded(theta, max_theta, br0) # in the [0, 1] range, like in Celestia
+        // py: glow_bw = PSF_Bounded(theta, max_theta, br) # in the [0, 1] range, like in Celestia
         float glow_bw = psf_bounded(theta, br0);
         // py: glow_colored = color * np.repeat(np.expand_dims(glow_bw, axis=2), 3, axis=2) # scaling
-        glow_colored = v_color * glow_bw;
+        vec3 glow_colored = v_color * glow_bw;
         // py: arr[center[1]+y_min:center[1]+y_max, center[0]+x_min:center[0]+x_max] += glow_colored
         gl_FragColor = vec4(glow_colored, 1.0);
     }
