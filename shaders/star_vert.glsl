@@ -61,6 +61,8 @@ void main(void)
         pointSize = 1.0;
         // use max_theta == -1 as as signal that the point size is 1px
         max_theta = -1.0;
+
+        v_color = scaled_color;
     }
     else
     {
@@ -82,6 +84,5 @@ void main(void)
     }
 
     gl_PointSize = pointSize;
-    v_color = scaled_color;
     set_vp(in_Position);
 }
