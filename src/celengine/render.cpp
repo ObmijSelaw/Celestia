@@ -1687,7 +1687,6 @@ void Renderer::renderObjectAsPoint(const Vector3f& position,
             pointStarVertexBuffer->addStar(position, {color, alpha}, pointSize);
         }
     }
-}
 
 
 static void renderSphereUnlit(const RenderInfo& ri,
