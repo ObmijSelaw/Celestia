@@ -521,6 +521,16 @@ void Renderer::setScreenDpi(int _dpi)
     projectionMode->setScreenDpi(_dpi);
 }
 
+float Renderer::getTextScaleFactor() const
+{
+    return textScaleFactor;
+}
+
+void Renderer::setTextScaleFactor(float scale)
+{
+    textScaleFactor = scale;
+}
+
 float Renderer::getScaleFactor() const
 {
     return screenDpi / 96.0f;
@@ -583,13 +593,24 @@ void Renderer::setResolution(TextureResolution resolution)
 
 std::shared_ptr<TextureFont> Renderer::getFont(FontStyle fs) const
 {
-    return fonts[(int) fs];
+    return fonts[static_cast<std::size_t>(fs)];
 }
 
 void Renderer::setFont(FontStyle fs, const std::shared_ptr<TextureFont>& font)
 {
-    fonts[(int) fs] = font;
+    fonts[static_cast<std::size_t>(fs)] = font;
     markSettingsChanged();
+}
+
+void Renderer::updateFonts()
+{
+    for (const auto& font : fonts)
+    {
+        if (font != nullptr)
+        {
+            font->update();
+        }
+    }
 }
 
 void Renderer::setRenderMode(RenderMode _renderMode)
@@ -909,7 +930,7 @@ void Renderer::endObjectAnnotations()
                           objectAnnotations.end(),
                           -depthPartitions[currentIntervalIndex].nearZ,
                           -depthPartitions[currentIntervalIndex].farZ,
-                          FontNormal);
+                          FontStyle::Normal);
 
         objectAnnotations.clear();
     }
@@ -1519,13 +1540,13 @@ void Renderer::render(const Observer& observer,
     renderBoundaries(universe, dist, asterismMVP);
 
     // Render star and deep sky object labels
-    renderBackgroundAnnotations(FontNormal);
+    renderBackgroundAnnotations(FontStyle::Normal);
 
     // Render constellations labels
     if (util::is_set(labelMode, RenderLabels::ConstellationLabels) && universe.getAsterisms() != nullptr)
     {
         labelConstellations(*universe.getAsterisms(), observer);
-        renderBackgroundAnnotations(FontLarge);
+        renderBackgroundAnnotations(FontStyle::Large);
     }
 
     if (util::is_set(renderFlags, RenderFlags::ShowMarkers))
@@ -1542,7 +1563,7 @@ void Renderer::render(const Observer& observer,
 
     // Render background markers; rendering of other markers is deferred until
     // solar system objects are rendered.
-    renderBackgroundAnnotations(FontNormal);
+    renderBackgroundAnnotations(FontStyle::Normal);
 
     removeInvisibleItems(frustum);
 
@@ -1559,7 +1580,7 @@ void Renderer::render(const Observer& observer,
     int nIntervals = buildDepthPartitions();
     renderSolarSystemObjects(observer, nIntervals, now);
 
-    renderForegroundAnnotations(FontNormal);
+    renderForegroundAnnotations(FontStyle::Normal);
 
     if (showSelectionPointer && !selectionVisible && util::is_set(renderFlags, RenderFlags::ShowMarkers))
     {
@@ -2138,12 +2159,19 @@ void Renderer::renderObject(const Vector3f& pos,
     Vector3f scaleFactors;
     float ringsScaleFactor;
     float geometryScale;
+    Matrix4f invMV;
     if (geometry == nullptr || geometry->isNormalized())
     {
         geometryScale = obj.radius;
         scaleFactors = obj.radius * obj.semiAxes;
         ringsScaleFactor = obj.radius * obj.semiAxes.maxCoeff();
         ri.pointScale = 2.0f * obj.radius / pixelSize;
+        // Compute the inverse model/view matrix
+        Affine3f invModelView = Scaling(obj.semiAxes).inverse() *
+                                obj.orientation *
+                                Translation3f(-pos / obj.radius) *
+                                getCameraOrientationf().conjugate();
+        invMV = invModelView.matrix();
     }
     else
     {
@@ -2151,6 +2179,11 @@ void Renderer::renderObject(const Vector3f& pos,
         scaleFactors = Vector3f::Constant(geometryScale);
         ringsScaleFactor = geometryScale;
         ri.pointScale = 2.0f * geometryScale / pixelSize;
+        // Compute the inverse model/view matrix
+        Affine3f invModelView = obj.orientation *
+                                Translation3f(-pos / obj.radius) *
+                                getCameraOrientationf().conjugate();
+        invMV = invModelView.matrix();
     }
     // Apply the modelview transform for the object
     Affine3f transform = Translation3f(pos) * obj.orientation.conjugate();
@@ -2189,12 +2222,6 @@ void Renderer::renderObject(const Vector3f& pos,
 
     // See if the surface should be lit
     bool lit = (obj.surface->appearanceFlags & Surface::Emissive) == 0;
-
-    // Compute the inverse model/view matrix
-    Affine3f invModelView = obj.orientation *
-                            Translation3f(-pos / obj.radius) *
-                            getCameraOrientationf().conjugate();
-    Matrix4f invMV = invModelView.matrix();
 
     // The sphere rendering code uses the view frustum to determine which
     // patches are visible. In order to avoid rendering patches that can't
@@ -5242,7 +5269,7 @@ Renderer::renderSolarSystemObjects(const Observer &observer,
         annotation = renderSortedAnnotations(annotation,
                                              nearPlaneDistance,
                                              farPlaneDistance,
-                                             FontNormal);
+                                             FontStyle::Normal);
         endObjectAnnotations();
     }
 
