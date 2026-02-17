@@ -36,31 +36,42 @@ vec3 green_normalization(vec3 color)
 
 void main(void)
 {
-    // py: linear_br = 10**(-0.4 * star_mag) * exposure # scaled brightness measured in Vegas
-    // +0.4 because `in_PointSize` is not the actual magnitude but `faintest` - `actual`
     float br0 = pow(10.0, 0.4 * in_PointSize) * exposure;
-    vec3 color = green_normalization(in_Color);
-    vec3 scaled_color = color * br0;
-
-    // py: if np.all(scaled_color < 1):
-    // Compare raw brightness against threshold, not the color-scaled version
-    if (br0 < 1.0)
+    
+    // Normalize color so that max component = 1.0 (matching Python behavior)
+    // NOT green_normalization, which forces g=1.0
+    vec3 color = in_Color / max(in_Color.r, max(in_Color.g, in_Color.b));
+    
+    // Apply saturation correction if needed
+    float delta = color_saturation_limit - min(color.r, min(color.g, color.b));
+    if (delta > 0.0)
     {
-        // Dim light source (9 pixels mode)
+        vec3 diff = vec3(1.0) - color;
+        color += diff * diff * delta;
+    }
+    // DO NOT divide by color.g here!
+    
+    vec3 scaled_color = color * br0;
+    
+    // Now max(scaled_color) = br0, so this is equivalent to checking br0 < 1.0
+    // But per-channel check also accounts for color, matching the Python exactly
+    if (all(lessThan(scaled_color, vec3(1.0))))
+    {
+        // Dim star (3×3 px box mode)
         max_theta = -1.0;
         pointSize = 3.0;
-        v_color = color * br0; // apply brightness to color for dim rendering
+        v_color = scaled_color;
     }
     else
     {
-        // Bright light source (glow mode)
+        // Bright star (glow mode)
         br = atan(br0 / max_br) * max_br;
         max_theta = a * sqrt(br);
         float half_sq = max_theta / degree_per_px;
         pointSize = 2.0 * half_sq - 1.0;
         v_color = color;
     }
-
+    
     gl_PointSize = pointSize;
     set_vp(in_Position);
 }
