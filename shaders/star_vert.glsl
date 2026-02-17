@@ -43,20 +43,19 @@ void main(void)
     vec3 scaled_color = color * br0;
 
     // py: if np.all(scaled_color < 1):
-    if (all(lessThan(scaled_color, vec3(1.0)))) // not works! never "true"
-    //if (max(scaled_color.r, max(scaled_color.g, scaled_color.b)) < 1.0)
-    //if (true)
+    // Compare raw brightness against threshold, not the color-scaled version
+    if (br0 < 1.0)
     {
         // Dim light source (9 pixels mode)
-        max_theta = -1.0; // mode indicator
+        max_theta = -1.0;
         pointSize = 3.0;
-        v_color = scaled_color;
+        v_color = color * br0; // apply brightness to color for dim rendering
     }
     else
     {
         // Bright light source (glow mode)
-        br = atan(br0 / max_br) * max_br; // dimmed brightness
-        max_theta = a * sqrt(br); // glow radius
+        br = atan(br0 / max_br) * max_br;
+        max_theta = a * sqrt(br);
         float half_sq = max_theta / degree_per_px;
         pointSize = 2.0 * half_sq - 1.0;
         v_color = color;
