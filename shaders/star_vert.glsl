@@ -20,41 +20,37 @@ attribute float in_PointSize;
 
 const float color_saturation_limit = 0.1; // the ratio of the minimum color component to the maximum
 
-//! Normalizes the color by its green value and corrects extreme saturation
-vec3 green_normalization(vec3 color)
+// sRGB to linear conversion (inverse of the passthrough_frag's to_srgb)
+vec3 srgb_to_linear(vec3 c)
 {
-    // color /= max(color.r, max(color.g, color.b)); // we do this in XYZRGBConverter::convertUnnormalized()
-    float delta = color_saturation_limit - min(color.r, min(color.g, color.b));
-
-    if (delta > 0)
-    {
-        vec3 diff = vec3(1.0) - color;
-        color += diff * diff * delta; // desaturating to the saturation limit
-    }
-    return color / color.g;
+    vec3 low = c / 12.92;
+    vec3 high = pow((c + 0.055) / 1.055, vec3(2.4));
+    return mix(low, high, step(vec3(0.04045), c));
 }
 
 void main(void)
 {
     float br0 = pow(10.0, 0.4 * in_PointSize) * exposure;
-    
-    // Normalize color so that max component = 1.0 (matching Python behavior)
-    // NOT green_normalization, which forces g=1.0
-    vec3 color = in_Color / max(in_Color.r, max(in_Color.g, in_Color.b));
-    
-    // Apply saturation correction if needed
+
+    // in_Color arrives as sRGB because Color class stores 8-bit sRGB values.
+    // We must convert to linear so that:
+    //   1. The discriminator compares correct physical brightness
+    //   2. The fragment output is linear, matching passthrough_frag's to_srgb()
+    vec3 raw_color = srgb_to_linear(in_Color.rgb);
+
+    // Normalize so that max component = 1.0
+    vec3 color = raw_color / max(raw_color.r, max(raw_color.g, raw_color.b));
+
+    // Apply saturation correction
     float delta = color_saturation_limit - min(color.r, min(color.g, color.b));
     if (delta > 0.0)
     {
         vec3 diff = vec3(1.0) - color;
         color += diff * diff * delta;
     }
-    // DO NOT divide by color.g here!
-    
+
     vec3 scaled_color = color * br0;
-    
-    // Now max(scaled_color) = br0, so this is equivalent to checking br0 < 1.0
-    // But per-channel check also accounts for color, matching the Python exactly
+
     if (all(lessThan(scaled_color, vec3(1.0))))
     {
         // Dim star (3×3 px box mode)
@@ -71,7 +67,7 @@ void main(void)
         pointSize = 2.0 * half_sq - 1.0;
         v_color = color;
     }
-    
+
     gl_PointSize = pointSize;
     set_vp(in_Position);
 }
